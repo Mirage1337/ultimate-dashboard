@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { Trip, Account, Expense } from './types'
+import { EXPENSE_CATEGORIES } from '@/lib/constants'
 
 export async function getDashboardData() {
     const supabase = await createClient()
@@ -156,7 +157,24 @@ export async function getTrips() {
 
         // Add expenses
         tripExpenses.forEach(exp => {
-            const cat = exp.category || 'Uncategorized'
+            let cat = exp.category || 'Uncategorized'
+
+            // Check if this category exists in our budget map
+            if (!categoryMap.has(cat)) {
+                // If not, try to find if it belongs to a parent group that IS in the budget map
+                // Iterate over EXPENSE_CATEGORIES to find the parent group
+                for (const [group, items] of Object.entries(EXPENSE_CATEGORIES)) {
+                    if (items.some(item => item.label === cat)) {
+                        // Found the parent group
+                        if (categoryMap.has(group)) {
+                            // If the parent group is tracked in our budget, attribute this expense to it
+                            cat = group
+                        }
+                        break
+                    }
+                }
+            }
+
             const current = categoryMap.get(cat) || { actual: 0, planned: 0 }
             categoryMap.set(cat, { ...current, actual: current.actual + exp.amount })
         })

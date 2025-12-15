@@ -47,6 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { CategorySelect } from "@/components/kokonutui/category-select"
 
 export default function LocationsContent({ initialTrips }: LocationsContentProps) {
   const locations = initialTrips
@@ -57,7 +58,11 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
 
   const [selectedTrip, setSelectedTrip] = useState<TripWithMetrics | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [categoryBudgets, setCategoryBudgets] = useState<{ name: string; amount: string }[]>([])
+  const [categoryBudgets, setCategoryBudgets] = useState<{ name: string; amount: string }[]>([
+    { name: "Auto & Transport", amount: "" },
+    { name: "Food & Dining", amount: "" },
+    { name: "Accommodation", amount: "" }
+  ])
   const [editCategoryBudgets, setEditCategoryBudgets] = useState<{ name: string; amount: string }[]>([])
 
   function addCategory(isEdit = false) {
@@ -98,7 +103,11 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
     } else {
       toast.success("Location added successfully")
       setIsAddDialogOpen(false)
-      setCategoryBudgets([])
+      setCategoryBudgets([
+        { name: "Auto & Transport", amount: "" },
+        { name: "Food & Dining", amount: "" },
+        { name: "Accommodation", amount: "" }
+      ])
     }
   }
 
@@ -209,12 +218,12 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                 <div className="space-y-2">
                   {categoryBudgets.map((cat, index) => (
                     <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder="Category Name"
-                        value={cat.name}
-                        onChange={(e) => updateCategory(index, "name", e.target.value, false)}
-                        className="flex-1"
-                      />
+                      <div className="flex-1">
+                        <CategorySelect
+                          value={cat.name}
+                          onSelect={(value) => updateCategory(index, "name", value, false)}
+                        />
+                      </div>
                       <Input
                         type="number"
                         placeholder="Amount"
@@ -303,12 +312,12 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                   <div className="space-y-2">
                     {editCategoryBudgets.map((cat, index) => (
                       <div key={index} className="flex gap-2">
-                        <Input
-                          placeholder="Category Name"
-                          value={cat.name}
-                          onChange={(e) => updateCategory(index, "name", e.target.value, true)}
-                          className="flex-1"
-                        />
+                        <div className="flex-1">
+                          <CategorySelect
+                            value={cat.name}
+                            onSelect={(value) => updateCategory(index, "name", value, true)}
+                          />
+                        </div>
                         <Input
                           type="number"
                           placeholder="Amount"
@@ -520,21 +529,28 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
 
               {/* Categories Breakdown */}
               <div className="p-6">
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Budget Categories</h4>
                 <div className="space-y-3">
-                  {location.categories.map((category) => (
-                    <div key={category.name} className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{category.name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500 dark:text-gray-500">
-                          {category.actual > 0
-                            ? `$${category.actual.toLocaleString()} / $${category.planned.toLocaleString()}`
-                            : `$${category.planned.toLocaleString()}`
-                          }
+                  {/* Category Header */}
+                  <div className="grid grid-cols-[1fr_100px_100px] gap-2 mb-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Budget Categories</span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 text-right uppercase">Planned</span>
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 text-right uppercase">Actual</span>
+                  </div>
+
+                  {location.categories.map((category) => {
+                    const isOver = category.actual > category.planned
+                    return (
+                      <div key={category.name} className="grid grid-cols-[1fr_100px_100px] gap-2 items-center">
+                        <span className="text-sm text-gray-600 dark:text-gray-400 truncate pr-2">{category.name}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-500 text-right">
+                          ${category.planned.toLocaleString()}
+                        </span>
+                        <span className={`text-sm text-right font-medium ${isOver ? "text-red-500" : "text-green-500"}`}>
+                          ${category.actual.toLocaleString()}
                         </span>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   {location.categories.length === 0 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">No categorized expenses yet.</p>
                   )}

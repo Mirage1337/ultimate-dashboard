@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Bell, ChevronRight } from "lucide-react"
 import Profile01 from "./profile-01"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ThemeToggle } from "../theme-toggle"
 
 interface BreadcrumbItem {
@@ -13,7 +14,43 @@ interface BreadcrumbItem {
 }
 
 export default function TopNav() {
-  const breadcrumbs: BreadcrumbItem[] = [{ label: "Travel Tracker", href: "/dashboard" }, { label: "dashboard" }]
+  const pathname = usePathname()
+
+  const generateBreadcrumbs = () => {
+    // Base breadcrumb
+    const items: BreadcrumbItem[] = [
+      { label: "Travel Tracker", href: "/dashboard" }
+    ]
+
+    // Split pathname into segments
+    const segments = pathname.split('/').filter(Boolean)
+
+    // Iterate segments to build breadcrumbs
+    // We skip 'dashboard' as it's covered by 'Travel Tracker'
+    let currentPath = ''
+
+    segments.forEach((segment: string) => {
+      currentPath += `/${segment}`
+      if (segment === 'dashboard') return
+
+      items.push({
+        label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
+        href: currentPath
+      })
+    })
+
+    // If we are just at /dashboard, maybe we want to show "Dashboard" explicitly?
+    // The user's screenshot showed "Travel Tracker > dashboard".
+    // If we want to mimic that (but correct), "Travel Tracker > Dashboard".
+    // But "Travel Tracker" href is /dashboard. 
+    // Let's stick to: if we are at root dashboard, just "Travel Tracker" or add "Dashboard" if user prefers.
+    // The user said: "shows dashboard" (complaining it shows dashboard even when in locations).
+    // So if in locations: "Travel Tracker > Locations".
+
+    return items
+  }
+
+  const breadcrumbs = generateBreadcrumbs()
 
   return (
     <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full">

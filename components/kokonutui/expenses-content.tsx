@@ -1,7 +1,8 @@
 
 "use client"
 
-import { Receipt, Plus, Search, MoreHorizontal, MapPin, Calendar } from "lucide-react"
+import { useState } from "react"
+import { Receipt, Plus, Search, Edit2, MapPin, Calendar, MoreHorizontal, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,46 +15,143 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Expense } from "@/lib/types"
+import { Expense, Trip } from "@/lib/types"
+import { addExpense, updateExpense, deleteExpense } from "@/app/dashboard/expenses/actions"
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { CategorySelect } from "@/components/kokonutui/category-select"
 
 interface ExpensesContentProps {
   initialExpenses: Expense[]
+  trips: Trip[]
 }
 
 const getCategoryColor = (category: string) => {
-  switch (category) {
-    case "Flights":
+  switch (category.toLowerCase()) {
     case "flights":
-      return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-    case "Accommodation":
-    case "accommodation":
-      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
-    case "Food":
-    case "food":
-      return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
-    case "Transport":
     case "transport":
-      return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-    case "Activities":
+      return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+    case "accommodation":
+    case "hotel":
+      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
+    case "food":
+    case "dining":
+      return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
     case "activities":
+    case "entertainment":
       return "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400"
     default:
       return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400"
   }
 }
 
-export default function ExpensesContent({ initialExpenses }: ExpensesContentProps) {
+export default function ExpensesContent({ initialExpenses, trips }: ExpensesContentProps) {
   const expenses = initialExpenses
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0)
 
-  // Extract unique locations and categories for filters
-  const locations = ["All Locations", ...Array.from(new Set(expenses.map(e => e.location).filter(Boolean)))]
-  const categories = ["All Categories", ...Array.from(new Set(expenses.map(e => e.category).filter(Boolean)))]
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [newExpenseCategory, setNewExpenseCategory] = useState("")
+  const [editExpenseCategory, setEditExpenseCategory] = useState("")
 
-  // TODO: Implement Client-side filtering logic or server-side filtering
-  // For now just displaying all
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedLocation, setSelectedLocation] = useState("all-locations")
+  const [selectedCategory, setSelectedCategory] = useState("all-categories")
+
+  const filteredExpenses = expenses.filter(expense => {
+    const matchesSearch = expense.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesLocation = selectedLocation === "all-locations" ||
+      (expense.location && expense.location.toLowerCase() === selectedLocation) ||
+      (expense.trip_id && trips.find(t => t.id === expense.trip_id)?.name.toLowerCase() === selectedLocation)
+    const matchesCategory = selectedCategory === "all-categories" || (expense.category && expense.category.toLowerCase() === selectedCategory)
+    return matchesSearch && matchesLocation && matchesCategory
+  })
+
+  // Extract unique locations and categories for filters
+  const uniqueLocations = Array.from(new Set([
+    ...expenses.map(e => e.location),
+    ...trips.map(t => t.name)
+  ].filter(Boolean))) as string[]
+
+  const uniqueCategories = Array.from(new Set(expenses.map(e => e.category).filter(Boolean))) as string[]
+
+  async function handleAddExpense(formData: FormData) {
+    setIsLoading(true)
+
+    // Look up location name if tripId is selected
+    const tripId = formData.get("tripId") as string
+    if (tripId) {
+      const trip = trips.find(t => t.id === tripId)
+      if (trip) {
+        formData.append("location", trip.name)
+      }
+    }
+
+    const result = await addExpense(formData)
+    setIsLoading(false)
+
+    if (result?.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Expense added successfully")
+      setIsAddDialogOpen(false)
+    }
+  }
+
+  async function handleUpdateExpense(formData: FormData) {
+    setIsLoading(true)
+
+    // Look up location name if tripId is selected
+    const tripId = formData.get("tripId") as string
+    if (tripId) {
+      const trip = trips.find(t => t.id === tripId)
+      if (trip) {
+        formData.append("location", trip.name)
+      }
+    }
+
+    const result = await updateExpense(formData)
+    setIsLoading(false)
+
+    if (result?.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Expense updated successfully")
+      setIsEditDialogOpen(false)
+      setSelectedExpense(null)
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedExpense) return
+
+    setIsLoading(true)
+    const result = await deleteExpense(selectedExpense.id)
+    setIsLoading(false)
+
+    if (result?.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Expense deleted successfully")
+      setIsDeleteDialogOpen(false)
+      setSelectedExpense(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -63,7 +161,7 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Expenses</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Track and manage your travel expenses</p>
         </div>
-        <Dialog>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-teal-600 hover:bg-teal-700 text-white">
               <Plus className="w-4 h-4 mr-2" />
@@ -75,57 +173,50 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
               <DialogTitle>Add New Expense</DialogTitle>
               <DialogDescription>Record a new travel expense and link it to a location.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <form action={handleAddExpense} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Input id="description" placeholder="e.g., Flight to Paris" />
+                <Input id="description" name="description" placeholder="e.g., Flight to Paris" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="amount">Amount</Label>
-                  <Input id="amount" type="number" placeholder="0.00" />
+                  <Input id="amount" name="amount" type="number" placeholder="0.00" step="0.01" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" />
+                  <Input id="date" name="date" type="date" required />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Select>
+                <Label htmlFor="tripId">Trip / Location</Label>
+                <Select name="tripId">
                   <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+                    <SelectValue placeholder="Select trip (Optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tokyo">Tokyo, Japan</SelectItem>
-                    <SelectItem value="paris">Paris, France</SelectItem>
-                    <SelectItem value="barcelona">Barcelona, Spain</SelectItem>
-                    <SelectItem value="bali">Bali, Indonesia</SelectItem>
+                    {trips.map((trip) => (
+                      <SelectItem key={trip.id} value={trip.id}>{trip.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="flights">Flights</SelectItem>
-                    <SelectItem value="accommodation">Accommodation</SelectItem>
-                    <SelectItem value="food">Food</SelectItem>
-                    <SelectItem value="transport">Transport</SelectItem>
-                    <SelectItem value="activities">Activities</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <CategorySelect
+                  value={newExpenseCategory}
+                  onSelect={setNewExpenseCategory}
+                />
+                <input type="hidden" name="category" value={newExpenseCategory} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (optional)</Label>
-                <Textarea id="notes" placeholder="Add any additional notes..." />
+                <Textarea id="notes" name="notes" placeholder="Add any additional notes..." />
               </div>
-              <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">Add Expense</Button>
-            </div>
+              <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Expense"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -135,28 +226,35 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="Search expenses..." className="pl-10" />
+            <Input
+              placeholder="Search expenses..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <Select>
+          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Locations" />
             </SelectTrigger>
             <SelectContent>
-              {locations.map((loc) => (
-                <SelectItem key={String(loc)} value={String(loc).toLowerCase().replace(/ /g, "-")}>
-                  {String(loc)}
+              <SelectItem value="all-locations">All Locations</SelectItem>
+              {uniqueLocations.map((loc) => (
+                <SelectItem key={loc} value={loc.toLowerCase()}>
+                  {loc}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((cat) => (
-                <SelectItem key={String(cat)} value={String(cat).toLowerCase().replace(/ /g, "-")}>
-                  {String(cat)}
+              <SelectItem value="all-categories">All Categories</SelectItem>
+              {uniqueCategories.map((cat) => (
+                <SelectItem key={cat} value={cat.toLowerCase()}>
+                  {cat}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -175,7 +273,7 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
             <Receipt className="w-6 h-6 text-teal-600 dark:text-teal-400" />
           </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{expenses.length} expenses recorded</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{filteredExpenses.length} expenses recorded</p>
       </div>
 
       {/* Expenses List */}
@@ -193,13 +291,10 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-[#1F1F23]">
-              {expenses.map((expense) => (
+              {filteredExpenses.map((expense) => (
                 <tr key={expense.id} className="hover:bg-gray-50 dark:hover:bg-[#1A1A1F] transition-colors">
                   <td className="px-6 py-4">
                     <p className="font-medium text-gray-900 dark:text-white">{expense.description}</p>
-                    {/* {expense.notes && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{expense.notes}</p>
-                    )} */}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
@@ -231,15 +326,24 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedExpense(expense)
+                          setIsEditDialogOpen(true)
+                        }}>
+                          <Edit2 className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={() => {
+                          setSelectedExpense(expense)
+                          setIsDeleteDialogOpen(true)
+                        }}>
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
                 </tr>
               ))}
-              {expenses.length === 0 && (
+              {filteredExpenses.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">No expenses found</td>
                 </tr>
@@ -248,6 +352,76 @@ export default function ExpensesContent({ initialExpenses }: ExpensesContentProp
           </table>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Expense</DialogTitle>
+          </DialogHeader>
+          {selectedExpense && (
+            <form action={handleUpdateExpense} className="space-y-4 py-4">
+              <input type="hidden" name="id" value={selectedExpense.id} />
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Input id="edit-description" name="description" defaultValue={selectedExpense.description} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">Amount</Label>
+                  <Input id="edit-amount" name="amount" type="number" defaultValue={selectedExpense.amount} step="0.01" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Date</Label>
+                  <Input id="edit-date" name="date" type="date" defaultValue={selectedExpense.date} required />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-tripId">Trip / Location</Label>
+                <Select name="tripId" defaultValue={selectedExpense.trip_id || undefined}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select trip (Optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {trips.map((trip) => (
+                      <SelectItem key={trip.id} value={trip.id}>{trip.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category</Label>
+                <CategorySelect
+                  value={editExpenseCategory || selectedExpense.category || undefined}
+                  onSelect={setEditExpenseCategory}
+                />
+                <input type="hidden" name="category" value={editExpenseCategory || selectedExpense.category || ''} />
+              </div>
+              <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isLoading}>
+                {isLoading ? "Updating..." : "Update Expense"}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the expense <strong>{selectedExpense?.description}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
