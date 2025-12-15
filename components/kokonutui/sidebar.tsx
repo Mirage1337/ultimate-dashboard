@@ -2,11 +2,12 @@
 
 import type React from "react"
 
-import { MapPin, Wallet, Receipt, LayoutDashboard, Plane, Settings, HelpCircle, Menu, PiggyBank } from "lucide-react"
+import { MapPin, Wallet, Receipt, LayoutDashboard, Plane, Settings, HelpCircle, Menu, PiggyBank, LogOut } from "lucide-react"
 
 import Link from "next/link"
 import { useState } from "react"
 import { usePathname } from "next/navigation"
+import { signout } from "@/app/login/actions"
 
 export default function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -30,11 +31,10 @@ export default function Sidebar() {
       <Link
         href={href}
         onClick={handleNavigation}
-        className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors ${
-          isActive
-            ? "bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400"
-            : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#1F1F23]"
-        }`}
+        className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors ${isActive
+          ? "bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400"
+          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#1F1F23]"
+          }`}
       >
         <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
         {children}
@@ -124,6 +124,13 @@ export default function Sidebar() {
               <NavItem href="/dashboard/help" icon={HelpCircle}>
                 Help
               </NavItem>
+              <button
+                onClick={() => signout()}
+                className="w-full flex items-center px-3 py-2 text-sm rounded-md transition-colors text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-50 dark:hover:bg-[#1F1F23]"
+              >
+                <LogOut className="h-4 w-4 mr-3 flex-shrink-0" />
+                Sign Out
+              </button>
             </div>
           </div>
         </div>

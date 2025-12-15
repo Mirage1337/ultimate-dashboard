@@ -1,8 +1,10 @@
 
-import { supabase } from './supabase'
+
+import { createClient } from '@/utils/supabase/server'
 import { Trip, Account, Expense } from './types'
 
 export async function getDashboardData() {
+    const supabase = await createClient()
     // Fetch data in parallel
     const [tripsRes, accountsRes, expensesRes] = await Promise.all([
         supabase.from('trips').select('*').order('start_date', { ascending: false }),
@@ -53,11 +55,13 @@ export async function getDashboardData() {
 }
 
 export async function getAccounts() {
+    const supabase = await createClient()
     const { data } = await supabase.from('accounts').select('*').order('name')
     return (data as Account[]) || []
 }
 
 export async function getBudgetMetrics() {
+    const supabase = await createClient()
     const [tripsRes, expensesRes] = await Promise.all([
         supabase.from('trips').select('*').order('start_date', { ascending: false }),
         supabase.from('expenses').select('*')
@@ -121,11 +125,13 @@ export async function getBudgetMetrics() {
 }
 
 export async function getExpensesList() {
+    const supabase = await createClient()
     const { data } = await supabase.from('expenses').select('*').order('date', { ascending: false })
     return (data as Expense[]) || []
 }
 
 export async function getTrips() {
+    const supabase = await createClient()
     const [tripsRes, expensesRes] = await Promise.all([
         supabase.from('trips').select('*').order('start_date', { ascending: false }),
         supabase.from('expenses').select('*')
