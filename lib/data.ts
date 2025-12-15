@@ -145,18 +145,27 @@ export async function getTrips() {
         const actualSpent = tripExpenses.reduce((sum, e) => sum + e.amount, 0)
 
         // Calculate category breakdown for this trip
-        const categoryMap = new Map<string, number>()
+        const categoryMap = new Map<string, { actual: number; planned: number }>()
+
+        // Initialize with planned budgets
+        if (trip.category_budgets) {
+            trip.category_budgets.forEach(cat => {
+                categoryMap.set(cat.name, { actual: 0, planned: cat.amount })
+            })
+        }
+
+        // Add expenses
         tripExpenses.forEach(exp => {
             const cat = exp.category || 'Uncategorized'
-            const current = categoryMap.get(cat) || 0
-            categoryMap.set(cat, current + exp.amount)
+            const current = categoryMap.get(cat) || { actual: 0, planned: 0 }
+            categoryMap.set(cat, { ...current, actual: current.actual + exp.amount })
         })
 
-        const categories = Array.from(categoryMap.entries()).map(([name, actual]) => ({
+        const categories = Array.from(categoryMap.entries()).map(([name, data]) => ({
             name,
-            planned: 0, // No category budget in schema yet
-            actual
-        })).sort((a, b) => b.actual - a.actual)
+            planned: data.planned,
+            actual: data.actual
+        })).sort((a, b) => (b.planned + b.actual) - (a.planned + a.actual))
 
         return {
             ...trip,

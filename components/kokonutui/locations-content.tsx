@@ -1,7 +1,7 @@
 
 "use client"
 
-import { MapPin, Plus, DollarSign, Calendar, MoreHorizontal } from "lucide-react"
+import { MapPin, Plus, DollarSign, Calendar, MoreHorizontal, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
@@ -57,6 +57,36 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
 
   const [selectedTrip, setSelectedTrip] = useState<TripWithMetrics | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [categoryBudgets, setCategoryBudgets] = useState<{ name: string; amount: string }[]>([])
+  const [editCategoryBudgets, setEditCategoryBudgets] = useState<{ name: string; amount: string }[]>([])
+
+  function addCategory(isEdit = false) {
+    if (isEdit) {
+      setEditCategoryBudgets([...editCategoryBudgets, { name: "", amount: "" }])
+    } else {
+      setCategoryBudgets([...categoryBudgets, { name: "", amount: "" }])
+    }
+  }
+
+  function removeCategory(index: number, isEdit = false) {
+    if (isEdit) {
+      setEditCategoryBudgets(editCategoryBudgets.filter((_, i) => i !== index))
+    } else {
+      setCategoryBudgets(categoryBudgets.filter((_, i) => i !== index))
+    }
+  }
+
+  function updateCategory(index: number, field: "name" | "amount", value: string, isEdit = false) {
+    if (isEdit) {
+      const newBudgets = [...editCategoryBudgets]
+      newBudgets[index] = { ...newBudgets[index], [field]: value }
+      setEditCategoryBudgets(newBudgets)
+    } else {
+      const newBudgets = [...categoryBudgets]
+      newBudgets[index] = { ...newBudgets[index], [field]: value }
+      setCategoryBudgets(newBudgets)
+    }
+  }
 
   async function handleAddTrip(formData: FormData) {
     setIsLoading(true)
@@ -68,6 +98,7 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
     } else {
       toast.success("Location added successfully")
       setIsAddDialogOpen(false)
+      setCategoryBudgets([])
     }
   }
 
@@ -98,6 +129,9 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
 
   function openEdit(trip: TripWithMetrics) {
     setSelectedTrip(trip)
+    setEditCategoryBudgets(
+      trip.categories.map(c => ({ name: c.name, amount: c.planned.toString() }))
+    )
     setIsEditDialogOpen(true)
   }
 
@@ -163,6 +197,52 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Budget Categories */}
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Label>Budget Categories</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => addCategory(false)}>
+                    <Plus className="w-3 h-3 mr-1" /> Add
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {categoryBudgets.map((cat, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        placeholder="Category Name"
+                        value={cat.name}
+                        onChange={(e) => updateCategory(index, "name", e.target.value, false)}
+                        className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Amount"
+                        value={cat.amount}
+                        onChange={(e) => updateCategory(index, "amount", e.target.value, false)}
+                        className="w-24"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => removeCategory(index, false)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {categoryBudgets.length === 0 && (
+                    <p className="text-xs text-center text-gray-500 py-2">No categories defined</p>
+                  )}
+                </div>
+                <input
+                  type="hidden"
+                  name="categoryBudgets"
+                  value={JSON.stringify(categoryBudgets.map(c => ({ name: c.name, amount: parseFloat(c.amount) || 0 })))}
+                />
+              </div>
               <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isLoading}>
                 {isLoading ? "Adding..." : "Add Location"}
               </Button>
@@ -211,6 +291,52 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Edit Budget Categories */}
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label>Budget Categories</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addCategory(true)}>
+                      <Plus className="w-3 h-3 mr-1" /> Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {editCategoryBudgets.map((cat, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          placeholder="Category Name"
+                          value={cat.name}
+                          onChange={(e) => updateCategory(index, "name", e.target.value, true)}
+                          className="flex-1"
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Amount"
+                          value={cat.amount}
+                          onChange={(e) => updateCategory(index, "amount", e.target.value, true)}
+                          className="w-24"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => removeCategory(index, true)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {editCategoryBudgets.length === 0 && (
+                      <p className="text-xs text-center text-gray-500 py-2">No categories defined</p>
+                    )}
+                  </div>
+                  <input
+                    type="hidden"
+                    name="categoryBudgets"
+                    value={JSON.stringify(editCategoryBudgets.map(c => ({ name: c.name, amount: parseFloat(c.amount) || 0 })))}
+                  />
+                </div>
                 <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isLoading}>
                   {isLoading ? "Updating..." : "Update Location"}
                 </Button>
@@ -254,12 +380,20 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                   <Label className="text-xs text-gray-500 mb-2 block">Categories</Label>
                   <div className="space-y-2">
                     {selectedTrip.categories.map((cat) => (
-                      <div key={cat.name} className="flex justify-between text-sm">
-                        <span>{cat.name}</span>
-                        <span>${cat.actual.toLocaleString()}</span>
+                      <div key={cat.name} className="flex flex-col text-sm border-b border-dashed border-gray-100 dark:border-gray-800 pb-2 mb-2 last:border-0">
+                        <div className="flex justify-between font-medium">
+                          <span>{cat.name}</span>
+                          <span>${cat.planned.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>Actual: ${cat.actual.toLocaleString()}</span>
+                          <span className={cat.actual > cat.planned ? "text-red-500" : "text-green-500"}>
+                            {cat.actual > cat.planned ? "+" : ""}${(cat.actual - cat.planned).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     ))}
-                    {selectedTrip.categories.length === 0 && <p className="text-sm text-gray-400">No expenses recorded.</p>}
+                    {selectedTrip.categories.length === 0 && <p className="text-sm text-gray-400">No budget categories defined.</p>}
                   </div>
                 </div>
               </div>
@@ -393,7 +527,10 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                       <span className="text-sm text-gray-600 dark:text-gray-400">{category.name}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-gray-500 dark:text-gray-500">
-                          ${category.actual.toLocaleString()}
+                          {category.actual > 0
+                            ? `$${category.actual.toLocaleString()} / $${category.planned.toLocaleString()}`
+                            : `$${category.planned.toLocaleString()}`
+                          }
                         </span>
                       </div>
                     </div>
