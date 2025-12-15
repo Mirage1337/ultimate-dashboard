@@ -8,6 +8,7 @@ export type Trip = {
     start_date: string | null
     end_date: string | null
     image_url: string | null
+    category_budgets: { name: string; amount: number }[] | null
 }
 
 export type Account = {

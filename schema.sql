@@ -11,7 +11,8 @@ create table trips (
   status text check (status in ('active', 'planned', 'completed')) default 'planned',
   start_date date,
   end_date date,
-  image_url text
+  image_url text,
+  category_budgets jsonb default '[]'::jsonb
 );
 
 -- Accounts Table

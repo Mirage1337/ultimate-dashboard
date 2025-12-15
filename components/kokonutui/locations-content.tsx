@@ -34,13 +34,28 @@ interface LocationsContentProps {
 }
 
 import { useState } from "react"
-import { addTrip, deleteTrip } from "@/app/dashboard/locations/actions"
-import { toast } from "sonner" // Assuming sonner is available based on package.json, or use standard alert/console for now if not setup
+import { addTrip, updateTrip, deleteTrip } from "@/app/dashboard/locations/actions"
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function LocationsContent({ initialTrips }: LocationsContentProps) {
   const locations = initialTrips
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+  const [selectedTrip, setSelectedTrip] = useState<TripWithMetrics | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   async function handleAddTrip(formData: FormData) {
@@ -49,18 +64,51 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
     setIsLoading(false)
 
     if (result?.error) {
-      alert(result.error) // Simple alert for now
+      toast.error(result.error)
     } else {
-      setIsDialogOpen(false)
+      toast.success("Location added successfully")
+      setIsAddDialogOpen(false)
+    }
+  }
+
+  async function handleUpdateTrip(formData: FormData) {
+    setIsLoading(true)
+    const result = await updateTrip(formData)
+    setIsLoading(false)
+
+    if (result?.error) {
+      toast.error(result.error)
+    } else {
+      toast.success("Location updated successfully")
+      setIsEditDialogOpen(false)
+      setSelectedTrip(null)
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this trip?")) return
     const result = await deleteTrip(id)
     if (result?.error) {
-      alert(result.error)
+      toast.error(result.error)
+    } else {
+      toast.success("Location deleted successfully")
+      setIsDeleteDialogOpen(false)
+      setSelectedTrip(null)
     }
+  }
+
+  function openEdit(trip: TripWithMetrics) {
+    setSelectedTrip(trip)
+    setIsEditDialogOpen(true)
+  }
+
+  function openView(trip: TripWithMetrics) {
+    setSelectedTrip(trip)
+    setIsViewDialogOpen(true)
+  }
+
+  function openDelete(trip: TripWithMetrics) {
+    setSelectedTrip(trip)
+    setIsDeleteDialogOpen(true)
   }
 
   return (
@@ -71,7 +119,7 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Locations</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your travel destinations and budgets</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-teal-600 hover:bg-teal-700 text-white">
               <Plus className="w-4 h-4 mr-2" />
@@ -100,7 +148,7 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
               </div>
               <div className="space-y-2">
                 <Label htmlFor="budget">Planned Budget</Label>
-                <Input id="budget" name="budget" type="number" placeholder="0.00" required />
+                <Input id="budget" name="budget" type="number" placeholder="0.00" step="0.01" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
@@ -121,6 +169,122 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit Location</DialogTitle>
+              <DialogDescription>Update the details for this trip.</DialogDescription>
+            </DialogHeader>
+            {selectedTrip && (
+              <form action={handleUpdateTrip} className="space-y-4 py-4">
+                <input type="hidden" name="id" value={selectedTrip.id} />
+                <div className="space-y-2">
+                  <Label htmlFor="edit-location">Location Name</Label>
+                  <Input id="edit-location" name="location" defaultValue={selectedTrip.name} required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-startDate">Start Date</Label>
+                    <Input id="edit-startDate" name="startDate" type="date" defaultValue={selectedTrip.start_date || ''} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-endDate">End Date</Label>
+                    <Input id="edit-endDate" name="endDate" type="date" defaultValue={selectedTrip.end_date || ''} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-budget">Planned Budget</Label>
+                  <Input id="edit-budget" name="budget" type="number" defaultValue={selectedTrip.budget} step="0.01" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select name="status" defaultValue={selectedTrip.status}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planned">Planned</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isLoading}>
+                  {isLoading ? "Updating..." : "Update Location"}
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* View Details Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Trip Details</DialogTitle>
+            </DialogHeader>
+            {selectedTrip && (
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-gray-500">Location</Label>
+                    <p className="font-medium">{selectedTrip.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Status</Label>
+                    <p className="capitalize">{selectedTrip.status}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Dates</Label>
+                    <p>{selectedTrip.start_date || 'TBD'} - {selectedTrip.end_date || 'TBD'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Budget</Label>
+                    <p>${selectedTrip.budget?.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Actual Spent</Label>
+                    <p>${selectedTrip.actualSpent?.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-gray-500 mb-2 block">Categories</Label>
+                  <div className="space-y-2">
+                    {selectedTrip.categories.map((cat) => (
+                      <div key={cat.name} className="flex justify-between text-sm">
+                        <span>{cat.name}</span>
+                        <span>${cat.actual.toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {selectedTrip.categories.length === 0 && <p className="text-sm text-gray-400">No expenses recorded.</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Alert Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the trip inside <strong>{selectedTrip?.name}</strong> and remove all associated data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => selectedTrip && handleDelete(selectedTrip.id)} className="bg-red-600 hover:bg-red-700">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
 
       {/* Location Cards */}
@@ -163,14 +327,36 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                     </span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" type="button">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(location.id)}>Delete</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault()
+                            openEdit(location)
+                          }}
+                        >
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault()
+                            openView(location)
+                          }}
+                        >
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            openDelete(location)
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

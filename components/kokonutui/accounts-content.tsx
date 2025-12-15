@@ -16,6 +16,9 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Account } from "@/lib/types"
+import { useState, useTransition } from "react"
+import { toast } from "sonner"
+import { addAccount } from "@/lib/actions"
 
 const getAccountIcon = (type: string) => {
   switch (type) {
@@ -49,6 +52,27 @@ interface AccountsContentProps {
 
 export default function AccountsContent({ initialAccounts }: AccountsContentProps) {
   const accounts = initialAccounts
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [type, setType] = useState("")
+  const [currency, setCurrency] = useState("")
+
+  async function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      const result = await addAccount(formData)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success("Account added successfully")
+        setOpen(false)
+        // Reset form manually if needed, but closing dialog usually effectively resets if we rely on unmount, 
+        // but Radix Dialog might keep state. 
+        // Native form reset works for inputs, but controlled state (Select) needs manual reset.
+        setType("")
+        setCurrency("")
+      }
+    })
+  }
 
   const totalAssets = accounts.filter((a) => a.balance > 0).reduce((sum, a) => sum + a.balance, 0)
   const totalLiabilities = accounts.filter((a) => a.balance < 0).reduce((sum, a) => sum + Math.abs(a.balance), 0)
@@ -62,7 +86,7 @@ export default function AccountsContent({ initialAccounts }: AccountsContentProp
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Accounts</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your financial accounts</p>
         </div>
-        <Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="bg-teal-600 hover:bg-teal-700 text-white">
               <Plus className="w-4 h-4 mr-2" />
@@ -74,14 +98,14 @@ export default function AccountsContent({ initialAccounts }: AccountsContentProp
               <DialogTitle>Add New Account</DialogTitle>
               <DialogDescription>Add a new financial account to track your travel funds.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <form action={handleSubmit} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="accountName">Account Name</Label>
-                <Input id="accountName" placeholder="e.g., Travel Savings" />
+                <Input id="accountName" name="name" placeholder="e.g., Travel Savings" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="accountType">Account Type</Label>
-                <Select>
+                <Select value={type} onValueChange={setType}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -91,19 +115,20 @@ export default function AccountsContent({ initialAccounts }: AccountsContentProp
                     <SelectItem value="credit">Credit Card</SelectItem>
                   </SelectContent>
                 </Select>
+                <input type="hidden" name="type" value={type} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="institution">Institution</Label>
-                <Input id="institution" placeholder="e.g., Chase Bank" />
+                <Input id="institution" name="institution" placeholder="e.g., Chase Bank" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="balance">Current Balance</Label>
-                  <Input id="balance" type="number" placeholder="0.00" />
+                  <Input id="balance" name="balance" type="number" step="0.01" placeholder="0.00" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
-                  <Select>
+                  <Select value={currency} onValueChange={setCurrency}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
@@ -114,10 +139,13 @@ export default function AccountsContent({ initialAccounts }: AccountsContentProp
                       <SelectItem value="JPY">JPY</SelectItem>
                     </SelectContent>
                   </Select>
+                  <input type="hidden" name="currency" value={currency} />
                 </div>
               </div>
-              <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">Add Account</Button>
-            </div>
+              <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isPending}>
+                {isPending ? "Adding..." : "Add Account"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

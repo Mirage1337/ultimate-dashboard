@@ -33,7 +33,7 @@ export default function LoginPage() {
                         </div>
                         <div className="flex flex-col gap-2 mt-4">
                             <Button formAction={login} className="w-full bg-teal-600 hover:bg-teal-700">Log in</Button>
-                            {/* <Button formAction={signup} variant="outline" className="w-full">Sign up</Button> */}
+                            <Button formAction={signup} variant="outline" className="w-full">Sign up</Button>
                         </div>
                     </form>
                 </CardContent>
