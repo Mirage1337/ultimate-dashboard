@@ -33,8 +33,35 @@ interface LocationsContentProps {
   initialTrips: TripWithMetrics[]
 }
 
+import { useState } from "react"
+import { addTrip, deleteTrip } from "@/app/dashboard/locations/actions"
+import { toast } from "sonner" // Assuming sonner is available based on package.json, or use standard alert/console for now if not setup
+import { useRouter } from "next/navigation"
+
 export default function LocationsContent({ initialTrips }: LocationsContentProps) {
   const locations = initialTrips
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  async function handleAddTrip(formData: FormData) {
+    setIsLoading(true)
+    const result = await addTrip(formData)
+    setIsLoading(false)
+
+    if (result?.error) {
+      alert(result.error) // Simple alert for now
+    } else {
+      setIsDialogOpen(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this trip?")) return
+    const result = await deleteTrip(id)
+    if (result?.error) {
+      alert(result.error)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -44,7 +71,7 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Locations</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your travel destinations and budgets</p>
         </div>
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-teal-600 hover:bg-teal-700 text-white">
               <Plus className="w-4 h-4 mr-2" />
@@ -56,28 +83,28 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
               <DialogTitle>Add New Location</DialogTitle>
               <DialogDescription>Add a new travel destination with your planned budget.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <form action={handleAddTrip} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="location">Location Name</Label>
-                <Input id="location" placeholder="e.g., Tokyo, Japan" />
+                <Input id="location" name="location" placeholder="e.g., Tokyo, Japan" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
-                  <Input id="startDate" type="date" />
+                  <Input id="startDate" name="startDate" type="date" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate">End Date</Label>
-                  <Input id="endDate" type="date" />
+                  <Input id="endDate" name="endDate" type="date" />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="budget">Planned Budget</Label>
-                <Input id="budget" type="number" placeholder="0.00" />
+                <Input id="budget" name="budget" type="number" placeholder="0.00" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
-                <Select>
+                <Select name="status" defaultValue="planned">
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -88,8 +115,10 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                   </SelectContent>
                 </Select>
               </div>
-              <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">Add Location</Button>
-            </div>
+              <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Location"}
+              </Button>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -124,10 +153,10 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-2 py-1 text-xs rounded-full ${location.status === "completed"
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                          : location.status === "active"
-                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                        : location.status === "active"
+                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                          : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                         }`}
                     >
                       {location.status}
@@ -141,7 +170,7 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                         <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(location.id)}>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -180,10 +209,6 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
                         <span className="text-sm text-gray-500 dark:text-gray-500">
                           ${category.actual.toLocaleString()}
                         </span>
-                        {/* <span className="text-sm text-gray-400 dark:text-gray-600">/</span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          ${category.planned.toLocaleString()}
-                        </span> */}
                       </div>
                     </div>
                   ))}
