@@ -558,12 +558,7 @@ export default function LocationsContent({ initialTrips }: LocationsContentProps
               </div>
 
               {/* Quick Actions */}
-              <div className="px-6 pb-6">
-                <Button variant="outline" className="w-full bg-transparent" size="sm">
-                  <DollarSign className="w-4 h-4 mr-2" />
-                  Update Actual Spent
-                </Button>
-              </div>
+
             </div>
           )
         })}
